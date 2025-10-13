@@ -763,17 +763,22 @@ if torch._C._has_mkldnn:
     def _can_be_linear_binary_inplace(_other):
         if isinstance(_other.data, ir.BaseView):
             try:
-                # it can be inplace when _other is the 2D to 3D view of a CppTemplateBuffer/QLinearPointwiseBinaryPT2E
+                # It can be inplaced when _other is the 2D to 3D view of a CppTemplateBuffer/QLinearPointwiseBinaryPT2E
                 # because if there is a view of CppTemplateBuffer/QLinearPointwiseBinaryPT2E,
-                # the CppTemplateBuffer will not be used directly but the view.
-                if isinstance(_other.data.data.data, (ir.CppTemplateBuffer)):
+                # CppTemplateBuffer/QLinearPointwiseBinaryPT2E will not be used directly but the view.
+                if isinstance(_other.data.data.data, (ir.CppTemplateBuffer, mkldnn_ir.QLinearPointwiseBinaryPT2E)):
                     return True
                 else:
-                    # use V.graph.operations to check if _other is a view of QLinearPointwiseBinaryPT2E as
-                    # the inplace QLinearPointwiseBinaryPT2E(binary_attr is sum) just reture the inputs[6].
-                    for op in V.graph.operations:
-                        if isinstance(op, mkldnn_ir.QLinearPointwiseBinaryPT2E) and _other.data.data.data == op.inputs[6]:
-                            return True
+                    # This is a special case on VIT model:
+                    # QLinearPointwiseBinaryPT2E(sum) -> QLinearPointwiseBinaryPT2E(sum) -> ...
+                    # That means the output of previous QLinearPointwiseBinaryPT2E is the input x2 of current QLinearPointwiseBinaryPT2E.
+                    # use V.graph.operations to check if _other is a view of the output
+                    # of previous QLinearPointwiseBinaryPT2E (the inputs[6]).
+                    if (
+                        isinstance(V.graph.operations[-1], mkldnn_ir.QLinearPointwiseBinaryPT2E)
+                        and _other.data.data.data == V.graph.operations[-1].inputs[6]
+                    ):
+                        return True
                 return False
             except AttributeError:
                 return False

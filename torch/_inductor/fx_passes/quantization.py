@@ -26,6 +26,7 @@ from ..pattern_matcher import (
 from ..utils import pad_listlike
 from .freezing_patterns import register_freezing_graph_pattern
 from .post_grad import register_lowering_pattern
+from ..virtualized import V
 
 
 aten = torch.ops.aten
@@ -606,7 +607,13 @@ def _register_quantized_linear_binary_lowering(
         unary_op_args = kwargs["unary_op_args"]
         unary_op_algorithm = kwargs["unary_op_algorithm"]
 
-        if binary_op_name == "sum" and not _can_be_linear_binary_inplace(x2):
+        if (
+            binary_op_name == "sum"
+            # Support sum for a special case on VIT model when the output of previous QLinearPointwiseBinaryPT2E/CPPTemplateBuffer
+            # is the x2 of current QLinearPointwiseBinaryPT2E even if x2 is a view of the output of previous QLinearPointwiseBinaryPT2E/CPPTemplateBuffer,
+            # and fix the issue when x2 is used by multiple nodes.
+            and (not _can_be_linear_binary_inplace(x2) or len(V.current_node.kwargs["x_2"].users) > 1)
+        ):
             binary_op_name = "add"
 
         computation_args = (
