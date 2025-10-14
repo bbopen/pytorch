@@ -8059,7 +8059,15 @@ symbolic_aot_autograd_failures = {
 }
 
 
-def _test_aot_autograd_helper(self, device, dtype, op, dynamic=False, use_min_cut=True):
+def _test_aot_autograd_helper(
+    self,
+    device,
+    dtype,
+    op,
+    dynamic=False,
+    use_min_cut=False,
+    disable_functionalization=False,
+):
     if not op.supports_autograd:
         self.skipTest("Op does not support autograd")
 
@@ -8091,6 +8099,7 @@ def _test_aot_autograd_helper(self, device, dtype, op, dynamic=False, use_min_cu
                 try_check_data_specialization=try_check_data_specialization,
                 skip_correctness_check=op.skip_correctness_check_compile_vs_eager,
                 use_min_cut=use_min_cut,
+                disable_functionalization=disable_functionalization,
             )
         except DynamicOutputShapeException:
             self.skipTest("Dynamic output shape operation in trace")
@@ -8194,24 +8203,32 @@ class TestEagerFusionOpInfo(AOTTestCase):
     @ops(op_db + hop_db, allowed_dtypes=(torch.float,))
     @skipOps(
         "TestEagerFusionOpInfo",
-        "test_aot_autograd_default_partition_exhaustive",
+        "test_aot_autograd_disable_functionalization_exhaustive",
         aot_autograd_failures,
     )
-    def test_aot_autograd_default_partition_exhaustive(self, device, dtype, op):
-        _test_aot_autograd_helper(self, device, dtype, op, use_min_cut=False)
+    def test_aot_autograd_disable_functionalization_exhaustive(self, device, dtype, op):
+        _test_aot_autograd_helper(
+            self, device, dtype, op, use_min_cut=False, disable_functionalization=True
+        )
 
     @ops(op_db + hop_db, allowed_dtypes=(torch.float,))
     @patch("functorch.compile.config.debug_assert", True)
     @skipOps(
         "TestEagerFusionOpInfo",
-        "test_aot_autograd_symbolic_default_partition_exhaustive",
+        "test_aot_autograd_disable_functionalization_symbolic_exhaustive",
         aot_autograd_failures | symbolic_aot_autograd_failures,
     )
-    def test_aot_autograd_symbolic_default_partition_exhaustive(
+    def test_aot_autograd_disable_functionalization_symbolic_exhaustive(
         self, device, dtype, op
     ):
         _test_aot_autograd_helper(
-            self, device, dtype, op, dynamic=True, use_min_cut=False
+            self,
+            device,
+            dtype,
+            op,
+            dynamic=True,
+            use_min_cut=False,
+            disable_functionalization=True,
         )
 
 
