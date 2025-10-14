@@ -1241,6 +1241,28 @@ def register_fast_op_impl(func: OpOverload):
     return impl_decorator
 
 
+def _maybe_statically_known_eq_1(size):
+    """
+    Check if a size (which may be an unbacked symint) can be statically
+    determined to equal 1 based on its constrained value range.
+
+    This is different from guard_or_false(size == 1) which will create a
+    guard for backed symbols or return False for unbacked ones. Instead,
+    we use statically_known_true to check if the unbacked symbol's constraints
+    force it to equal 1.
+
+    Returns True if the size is provably 1, False otherwise.
+    """
+    from torch.fx.experimental.symbolic_shapes import statically_known_true
+
+    # Try statically_known_true which can reason about unbacked symbols
+    # using their value ranges without creating guards
+    result = statically_known_true(size == 1)
+    if result is not None:
+        return result
+    return False
+
+
 # infer_size_impl in ExpandUtils
 def infer_size(a, b):
     from torch.fx.experimental.symbolic_shapes import guard_or_false, has_hint
@@ -1282,18 +1304,26 @@ def infer_size(a, b):
         # If either size is unbacked, we need to be careful not to call
         # guard_or_false on it (which would try to create a guard), so we
         # check that first and skip directly to the equality check.
+        # For unbacked symbols, we try to use statically_known_true to check
+        # if the symbol's constraints force it to equal 1.
+        sizeA_is_1 = (
+            guard_or_false(sizeA == 1)
+            if has_hint(sizeA)
+            else _maybe_statically_known_eq_1(sizeA)
+        )
+        sizeB_is_1 = (
+            guard_or_false(sizeB == 1)
+            if has_hint(sizeB)
+            else _maybe_statically_known_eq_1(sizeB)
+        )
+
         torch._check(
-            has_zero_dim
-            or (
-                (guard_or_false(sizeA == 1) if has_hint(sizeA) else False)
-                or (guard_or_false(sizeB == 1) if has_hint(sizeB) else False)
-                or sizeA == sizeB
-            ),
+            has_zero_dim or (sizeA_is_1 or sizeB_is_1 or sizeA == sizeB),
             lambda: f"The size of tensor a ({sizeA}) "
             f"must match the size of tensor b ({sizeB}) "
             f"at non-singleton dimension {i})",
         )
-        expandedSizes[i] = sizeB if guard_or_false(sizeA == 1) else sizeA
+        expandedSizes[i] = sizeB if sizeA_is_1 else sizeA
     return tuple(expandedSizes)
 
 
