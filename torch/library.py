@@ -831,7 +831,6 @@ def register_kernel(
     if device_types is None:
         device_types = "CompositeExplicitAutograd"
 
-
     return _impl(op, device_types, func, lib=lib, disable_dynamo=True)
 
 

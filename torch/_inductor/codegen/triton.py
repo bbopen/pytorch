@@ -3199,7 +3199,6 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         if append_broadcast:
             line = f"tl.broadcast_to({result_var}, {append_broadcast})"
             result_var = self.cse.generate(
-
                 load_buffer,
                 line,
                 dtype=dtype,
@@ -3667,7 +3666,6 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                 )
                 root_op = {"argmax": "max", "argmin": "min"}[reduction_type]
                 final_argreduce(
-
                     self.compute,
                     result_var,
                     # pyrefly: ignore  # unbound-name
@@ -3705,7 +3703,6 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                 # pyrefly: ignore  # unbound-name
                 assert isinstance(masked_value, CSEVariable)
                 _result, _dtype, _shape = final_reduction(
-
                     self.compute,
                     # pyrefly: ignore  # unbound-name
                     masked_value,

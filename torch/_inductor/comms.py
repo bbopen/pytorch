@@ -826,7 +826,6 @@ def _schedule_for_comm(
             collective_cost > 0
             and (candidate := get_overlapping_candidate()) is not None
         ):
-
             ready.remove(candidate)
 
             schedule(candidate.snode)

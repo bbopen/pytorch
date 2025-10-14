@@ -620,7 +620,6 @@ def rebind_unbacked(
             ):
                 # This is what the pattern match above is testing
                 repacked = _sympy_cast_symbool_to_symint_guardless(
-
                     sympy.Eq(new_raw_u1, 1)
                 )
                 assert repacked == raw_u1, f"{repacked} != {raw_u1}"
@@ -1027,7 +1026,6 @@ def find_symbol_binding_fx_nodes(
     # NB: Prefer first occurrence of symbol
     for node in graph.nodes:
         if (s := is_symbol_binding_fx_node(node)) is not None and s not in r:
-
             r[s] = node
     return r
 
@@ -1198,7 +1196,6 @@ def _free_unbacked_symbols_with_path(
         and isinstance(s := expr(a), sympy.Symbol)
         and s in pending
     ):
-
         r[s] = path
         if shape_env and real is not None:
             assert isinstance(real, (int, float))
@@ -1234,14 +1231,10 @@ def _free_unbacked_symbols_with_path(
                 source=shape_env.var_to_sources.get(s, [None])[0],  # type: ignore[union-attr]
             )
 
-
         unbacked = lhs if lhs in pending else rhs
         divisor: IntLikeType = (
-
             int(coeff)
-
             if shape_env and isinstance(coeff, sympy.Integer)
-
             else _symint_wrap(coeff)
         )
         # TODO: DivideByKey needs to test divisibility at runtime!
@@ -1250,11 +1243,8 @@ def _free_unbacked_symbols_with_path(
         if real is not None:
             assert isinstance(real, int)
             val = (
-
                 real // int(coeff)
-
                 if isinstance(coeff, sympy.Integer)
-
                 else CleanDiv(real, coeff)
             )
             if shape_env:
@@ -1271,12 +1261,10 @@ def _free_unbacked_symbols_with_path(
         and s.rhs == 1
         and s.lhs in pending
     ):
-
         r[s.lhs] = path + (ConvertIntKey(),)
         if real is not None:
             assert type(real) is bool
             if shape_env:
-
                 shape_env.set_unbacked_var_to_val(s, int(real))
 
         pending.remove(s.lhs)
@@ -1354,7 +1342,6 @@ def compute_unbacked_bindings(
             ):
                 if (
                     isinstance(old_sym, SymTypes)
-
                     and (old_s := old_sym.node.expr) != new_s
                 ):
                     # If old_s is not an unbacked_symbol,
@@ -1366,13 +1353,10 @@ def compute_unbacked_bindings(
                     # because we know the value is the same.
 
                     if isinstance(old_s, sympy.Symbol) and free_unbacked_symbols(old_s):
-
                         shape_env._rename_unbacked_to(new_s, old_s)
                     else:
-
                         shape_env._eliminate_unbacked(new_s, old_s)
                 elif not isinstance(old_sym, SymTypes):
-
                     shape_env._eliminate_unbacked(new_s, sympy.sympify(old_sym))
 
     return symbol_to_path
@@ -7602,7 +7586,6 @@ class ShapeEnv:
                         log.info(
                             "oblivious_size %s -> %s (passed counterfactual)",
                             orig_expr,
-
                             correct_hint,
                         )
 
@@ -7622,7 +7605,6 @@ class ShapeEnv:
                             ).xreplace(self.var_to_val)
                         ).free_symbols
                     ):
-
                         self._log_real_tensor_propagation(orig_expr, unsound_result)
                         transmute_into_runtime_assert = True
 

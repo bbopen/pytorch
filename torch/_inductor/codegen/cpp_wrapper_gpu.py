@@ -822,7 +822,6 @@ class CppWrapperGpu(CppWrapperCpu):
 
         if triton:
             call_args, arg_types = self.prepare_triton_wrapper_args(
-
                 call_args,
                 # pyrefly: ignore  # bad-argument-type
                 arg_types,

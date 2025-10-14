@@ -4087,7 +4087,6 @@ class CheckFunctionManager:
             and (cache_entry := self.guard_manager.cache_entry) is not None
             and (extra_state := self.guard_manager.extra_state) is not None
         ):
-
             assert isinstance(cache_entry, CacheEntry)
 
             assert isinstance(extra_state, ExtraState)

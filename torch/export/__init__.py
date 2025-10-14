@@ -436,7 +436,6 @@ def load(
         print(ep(torch.randn(5)))
     """
     if isinstance(f, (str, os.PathLike)):
-
         f = os.fspath(f)
 
     extra_files = extra_files or {}

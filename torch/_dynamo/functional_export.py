@@ -368,7 +368,6 @@ def _suggest_or_raise_constraint_violation(
             torch._ops.OpOverloadPacket | torch._ops.OpOverload,
         )
     ):
-
         dim_constraints.solve()
 
         forced_specializations = dim_constraints.forced_specializations()
@@ -397,7 +396,6 @@ def _suggest_or_raise_constraint_violation(
         for k in shape_env.var_to_range.keys():
             if isinstance(k, sympy.Integer):
                 constraint_violation_error = ConstraintViolationError(
-
                     f"{''.join(traceback.format_list(shape_env.var_to_stack[k]))}\n"
                     "It appears that you're trying to set a constraint on a "
                     f"value which we evaluated to have a static value of {k}. "

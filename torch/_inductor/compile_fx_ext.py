@@ -620,7 +620,6 @@ class _OutOfProcessFxCompile(_SerializedFxCompile):
 
         if output.warning_replay:
             for w in output.warning_replay:
-
                 warnings.warn_explicit(
                     message=w.message,
                     category=w.category,

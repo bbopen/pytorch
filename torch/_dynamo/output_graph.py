@@ -2045,7 +2045,6 @@ class OutputGraph(OutputGraphCommon):
         tx = self.root_tx
         assert tx is not None
         if (ds := tx.distributed_state) is not None and ds.all_states is None:
-
             compile_pg = ds.compile_pg
 
             log.info("compiler_collective %s", ds.local_state)
@@ -2055,7 +2054,6 @@ class OutputGraph(OutputGraphCommon):
                     "name": "compiler_collective",
                     "encoding": "string",
                 },
-
                 payload_fn=lambda: ds.local_state.render(),
             )
             device_types = compile_pg._device_types
@@ -2456,7 +2454,6 @@ class OutputGraph(OutputGraphCommon):
                 isinstance(b, torch.SymBool)
                 and (r := b.node.maybe_as_bool()) is not None
             ):
-
                 return r
             # TODO: We can also technically remove all cases when the input
             # doesn't have unbacked inputs, since it's all in the ShapeEnv
