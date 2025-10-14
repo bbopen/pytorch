@@ -276,10 +276,12 @@ class TritonSymbols:
 
     @classmethod
     def get_block_size(cls, tree: IterationRanges) -> sympy.Symbol:
+        # pyrefly: ignore  # missing-argument
         return cls.block_sizes[tree.symt]
 
     @classmethod
     def get_block_offset(cls, tree: IterationRanges) -> sympy.Symbol:
+        # pyrefly: ignore  # missing-argument
         return cls.block_offsets[tree.symt]
 
 
@@ -489,6 +491,7 @@ class BlockDescriptorOptions:
         # Substitute maximum block sizes in shape expressions.
         # This works in multiple_of checks because block sizes are powers of 2.
         block_to_max: dict[sympy.Expr, Any] = {
+            # pyrefly: ignore  # missing-argument
             TritonSymbols.block_sizes[t.symt]: get_max_block(prefix_str[t.symt])
             for t in range_trees
         }
@@ -744,6 +747,7 @@ class TritonPrinter(PythonPrinter):
 
     def _print_ToFloat(self, expr: sympy.Expr) -> str:
         assert len(expr.args) == 1
+        # pyrefly: ignore  # bad-argument-type
         s = self.parenthesize(expr.args[0], PRECEDENCE["Atom"] - 0.5)
         return f"{s}.to(tl.float64)"
 
@@ -2126,6 +2130,7 @@ class TMACompatibilityChecker:
             innermost_tree_prefix = prefix_str[innermost_block_symt]
             tree_numel = None
             for t in self.kernel.range_trees:
+                # pyrefly: ignore  # missing-argument
                 if t.is_reduction:
                     if t.prefix == innermost_tree_prefix:
                         tree_numel = t.numel
@@ -2337,6 +2342,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         if any(
             not self._has_constant_mask(tree)
             for tree in self.range_trees
+            # pyrefly: ignore  # missing-argument
             if tree.is_reduction
         ):
             self.body.writeline(
@@ -2406,6 +2412,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
     def want_no_x_dim(self):
         return (
             self.persistent_reduction
+            # pyrefly: ignore  # missing-argument
             and len(self.numels) == self.num_reduction_dims + 1
             and self.fixed_config
             and self.fixed_config["XBLOCK"] == 1
@@ -2799,6 +2806,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                     tmp_masks = mask_shape.difference(xyzr)
                     tmp = tmp_masks.pop()
                     assert isinstance(tmp, TritonCSEVariable)
+                    # pyrefly: ignore  # bad-argument-type
                     mask_shape.discard(tmp)
                     mask_shape.update(tmp.mask_vars)
 
@@ -3191,7 +3199,12 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         if append_broadcast:
             line = f"tl.broadcast_to({result_var}, {append_broadcast})"
             result_var = self.cse.generate(
-                load_buffer, line, dtype=dtype, shape=indexing.expand_shape
+
+                load_buffer,
+                line,
+                dtype=dtype,
+                # pyrefly: ignore  # missing-attribute
+                shape=indexing.expand_shape,
             )
             if indexing.mask_vars:
                 if dtype.is_floating_point:
@@ -3203,6 +3216,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                 other_val = (
                     constant_repr(self._load_other) if self._load_other else zero
                 )
+                # pyrefly: ignore  # missing-attribute
                 line = f"tl.where({indexing.mask_str}, {result_var}, {other_val})"
                 result_var = self.cse.generate(
                     load_buffer, line, dtype=dtype, shape=result_var.shape
@@ -3389,6 +3403,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         if ndims == 1:
             return f"triton_helpers.promote_to_tensor({value})"
 
+        # pyrefly: ignore  # missing-argument
         nreduce = self.num_reduction_dims
         sizes = [":"] * (ndims - nreduce) + ["None"] * nreduce
         return f"{value}[{', '.join(sizes)}]"
@@ -3398,6 +3413,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         if ndims == 1:
             return f"triton_helpers.promote_to_tensor({value})", shape
 
+        # pyrefly: ignore  # missing-argument
         nreduce = self.num_reduction_dims
         sizes = [":"] * (ndims - nreduce) + ["None"] * nreduce
         new_shape = (
@@ -3412,6 +3428,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         Reshape to RBLOCK, collapsing all reduction dims.
         """
         # This is not needed for 1D reductions.
+        # pyrefly: ignore  # missing-argument
         if self.num_reduction_dims == 1:
             return value
 
@@ -3499,6 +3516,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
             value,
         )
 
+        # pyrefly: ignore  # missing-argument
         dim = self.triton_tensor_ndim() - self.num_reduction_dims
         root_op: str
 
@@ -3549,6 +3567,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
             """
             Generate a reduction and assign it to an existing variable.
             """
+            # pyrefly: ignore  # bad-assignment
             value, _, _ = final_reduction(buffer, value, result_type)
             buffer.splice(f"{result_var} = {value}")
 
@@ -3632,20 +3651,28 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                 masked_value = _mask_value(value, default)
 
             if reduction_type in ("argmax", "argmin"):
+                # pyrefly: ignore  # unbound-name
                 assert isinstance(masked_value, CSEVariable)
                 accumulator_dtype = V.kernel.get_index_dtype_as_torch_dtype()
 
                 accumulator_index = str(
                     self.cse.generate(
                         self.compute,
+                        # pyrefly: ignore  # unbound-name
                         f"tl.broadcast_to({reduction_range_prefix}index, {masked_value}.shape)",
                         dtype=accumulator_dtype,
+                        # pyrefly: ignore  # unbound-name
                         shape=masked_value.shape,
                     )
                 )
                 root_op = {"argmax": "max", "argmin": "min"}[reduction_type]
                 final_argreduce(
-                    self.compute, result_var, masked_value, accumulator_index
+
+                    self.compute,
+                    result_var,
+                    # pyrefly: ignore  # unbound-name
+                    masked_value,
+                    accumulator_index,
                 )
                 result_var.dtype = accumulator_dtype
             elif reduction_type == "welford_reduce":
@@ -3660,7 +3687,9 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                     # taking two reductions doesn't increase memory usage.
                     result_var = self.welford_reduce_fallback(dtype, value)
             elif reduction_type == "welford_combine":
+                # pyrefly: ignore  # unbound-name
                 assert isinstance(masked_value, Sequence)
+                # pyrefly: ignore  # unbound-name
                 (mean, m2, weight) = masked_value
                 result_var = tuple(
                     self.cse.generate(self.compute, value, dtype=dtype, shape=shape)
@@ -3673,9 +3702,15 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                 # online softmax
                 result_var = self.prepare_softmax_twopass_fallback(dtype, value)
             else:
+                # pyrefly: ignore  # unbound-name
                 assert isinstance(masked_value, CSEVariable)
                 _result, _dtype, _shape = final_reduction(
-                    self.compute, masked_value, masked_value.dtype
+
+                    self.compute,
+                    # pyrefly: ignore  # unbound-name
+                    masked_value,
+                    # pyrefly: ignore  # unbound-name
+                    masked_value.dtype,
                 )
                 result_var = self.cse.generate(
                     self.compute, _result, dtype=_dtype, shape=_shape
@@ -3825,6 +3860,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                 final_argreduce(self.post_loop_store, result_var, peer_val, peer_idx)
             elif is_welford_reduction(reduction_type):
                 assert reduction_type == "welford_reduce"
+                # pyrefly: ignore  # not-iterable
                 result_mean, result_m2, result_weight = result_var
                 peer_mean = self.codegen_cooperative_reduction_peer_combine(
                     result_mean,
@@ -3853,6 +3889,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                     dtype,
                 )
             elif reduction_type == "online_softmax_reduce":
+                # pyrefly: ignore  # not-iterable
                 result_max, result_sum = result_var
                 assert isinstance(default, Sequence)
                 peer_max = self.codegen_cooperative_reduction_peer_combine(
@@ -3874,9 +3911,11 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                 peers = self.codegen_cooperative_reduction_peer_combine(
                     result_var, upcast_acc_dtype(src_dtype), default
                 )
+                # pyrefly: ignore  # bad-argument-type
                 final_reduction_define(self.post_loop_store, result_var, peers, None)
             exit_stack.close()
 
+        # pyrefly: ignore  # unsupported-operation
         self.cse.reduction_cache[cache_key] = result_var
 
         if isinstance(result_var, tuple):
@@ -3953,6 +3992,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         self, result_var, reduction_type, value, where_cond, acc_type, dtype
     ):
         """Helper to codegen a welford reduction"""
+        # pyrefly: ignore  # missing-argument
         dim = self.triton_tensor_ndim() - self.num_reduction_dims
 
         accumulator = TritonCSEVariable(
@@ -4248,6 +4288,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         dtypes = tuple(upcast_compute_type(dtype) for dtype in dtypes)
         cse_compute = functools.partial(self.cse.generate, self.compute)
         combine_helper_fn = self._lift_helper(combine_fn, values, dtypes)
+        # pyrefly: ignore  # missing-argument
         dim = self.triton_tensor_ndim() - self.num_reduction_dims
 
         for value, dtype in zip(values, dtypes):
@@ -4371,6 +4412,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         )
 
         cse_compute = functools.partial(self.cse.generate, self.compute)
+        # pyrefly: ignore  # missing-argument
         dim = self.triton_tensor_ndim() - self.num_reduction_dims
 
         dtypes = tuple(upcast_compute_type(dtype) for dtype in dtypes)
@@ -4405,6 +4447,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                 self.cse.put(cache_key, result_var)
             return tuple(result_vars)
 
+        # pyrefly: ignore  # missing-argument
         assert self.range_trees[-1].is_reduction
         rnumel = "None" if self._has_constant_mask(self.range_trees[-1]) else "rnumel"
 
@@ -4485,12 +4528,14 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                 with self.body.indent(offset=level + 1):
                     # Advance pointers at the end of each loop.
                     for block_ptr, advancement in self.pointer_advancements[
+                        # pyrefly: ignore  # missing-argument
                         tree.symt
                     ].items():
                         # Subtract any advancements made in the previous loop level.
                         if level < len(loop_trees) - 1:
                             prev_tree = loop_trees[level + 1]
                             prev_advancement = self.pointer_advancements[
+                                # pyrefly: ignore  # missing-argument
                                 prev_tree.symt
                             ][block_ptr]
                             prev_block = TritonSymbols.get_block_size(prev_tree)
@@ -4844,6 +4889,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
             ):
                 mutated_args.add(argname.name)
 
+        # pyrefly: ignore  # bad-assignment
         mutated_args = sorted(mutated_args)
 
         for tree in self.active_range_trees():
@@ -4864,6 +4910,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
             argdefs.append(ArgName(arg_name, is_constexpr=True))
 
         for tree in self.range_trees:
+            # pyrefly: ignore  # missing-argument
             if tree.is_reduction and self.persistent_reduction:
                 # Rn_BLOCK for persistent_reduction is defined in codegen_static_numels
                 continue
@@ -5115,11 +5162,13 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
             return isinstance(expr, (sympy.Integer, int))
 
         for tree in self.range_trees:
+            # pyrefly: ignore  # missing-argument
             if not tree.is_reduction or self.inside_reduction:
                 simplified_tree_numel = V.graph.sizevars.simplify(tree.numel)
                 if is_static_integer(simplified_tree_numel):
                     code.writeline(f"{tree.prefix}numel = {int(simplified_tree_numel)}")
 
+            # pyrefly: ignore  # missing-argument
             if tree.is_reduction and self.persistent_reduction:
                 if self.cooperative_reduction:
                     numel = self.kexpr(self.rename_indexing(tree.numel))
@@ -5136,6 +5185,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
                 code.writeline("XBLOCK: tl.constexpr = 1")
 
     def _get_grid_type(self) -> type[triton_heuristics.GridExpr]:
+        # pyrefly: ignore  # missing-argument
         n = sum([int(not tree.is_reduction) for tree in self.range_trees])
         if self.cooperative_reduction:
             assert n == 1
@@ -5158,6 +5208,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
             else:
                 expr = V.graph.wrapper_code.generate_numel_expr(name, tree)
 
+            # pyrefly: ignore  # missing-argument
             if not tree.is_reduction or self.inside_reduction:
                 call_args.append(expr)
                 arg_types.append(type(expr))
@@ -5216,6 +5267,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         if (
             self.cooperative_reduction
             and self.persistent_reduction
+            # pyrefly: ignore  # missing-argument
             and entry.is_reduction
         ):
             suffix = f"{suffix} + rsplit_start"
@@ -5276,6 +5328,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
 
         # Masks are superfluous if numel is a multiple of BLOCK
         # (We use the fact that BLOCK is required by triton to be a power of 2)
+        # pyrefly: ignore  # missing-argument
         if tree.is_reduction and self.persistent_reduction:
             max_block = self._get_persistent_RBLOCK(tree.numel)
         elif tree.prefix == "x" and self.no_x_dim:
@@ -5283,6 +5336,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         else:
             max_block = self.max_block(tree.prefix)
 
+        # pyrefly: ignore  # missing-argument
         if tree.is_reduction and self.cooperative_reduction:
             max_block = max_block * self.max_rsplit()
 
@@ -5323,6 +5377,7 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
     def get_reduction_prefixes(self) -> list[str]:
         return [
             prefix_str[symt]
+            # pyrefly: ignore  # missing-argument
             for symt in list(TritonSymbols.reduction_types)[: self.num_reduction_dims]
         ]
 
@@ -5331,14 +5386,17 @@ class TritonKernel(SIMDKernel[TritonCSEVariable]):
         Generates code that flattens ND reduction numels, block sizes, etc. into 1D.
         """
         # rnumel = r0_numel * ... * r(n-1)_numel
+        # pyrefly: ignore  # missing-argument
         reduction_trees = [tree for tree in self.range_trees if tree.is_reduction]
         rnumel = " * ".join(sorted(f"{tree.prefix}numel" for tree in reduction_trees))
         buffer.splice(f"rnumel = {self.kexpr(rnumel)}")
 
         # RBLOCK = R0_BLOCK * ... * R(N-1)_BLOCK
         rn_blocks = [
+            # pyrefly: ignore  # missing-argument
             TritonSymbols.block_sizes[tree.symt]
             for tree in self.range_trees
+            # pyrefly: ignore  # missing-argument
             if tree.is_reduction
         ]
         rblock = sympy_product(rn_blocks)

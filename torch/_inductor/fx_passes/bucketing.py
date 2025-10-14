@@ -54,6 +54,7 @@ def bucket_all_gather(
 ) -> None:
     if bucket_cap_mb_by_bucket_idx is None:
         from torch._inductor.fx_passes.bucketing import (
+            # pyrefly: ignore  # missing-module-attribute
             bucket_cap_mb_by_bucket_idx_default,
         )
 
@@ -71,6 +72,7 @@ def bucket_reduce_scatter(
 ) -> None:
     if bucket_cap_mb_by_bucket_idx is None:
         from torch._inductor.fx_passes.bucketing import (
+            # pyrefly: ignore  # missing-module-attribute
             bucket_cap_mb_by_bucket_idx_default,
         )
 

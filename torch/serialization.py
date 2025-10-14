@@ -775,7 +775,7 @@ def _open_file_like(name_or_buffer: FileLike, mode: str) -> _opener[IO[bytes]]:
 class _open_zipfile_reader(_opener[torch._C.PyTorchFileReader]):
     def __init__(self, name_or_buffer: Union[str, IO[bytes]]) -> None:
         super().__init__(
-            # pyrefly: ignore  # no-matching-overload
+
             torch._C.PyTorchFileReader(name_or_buffer)
         )
 
@@ -970,7 +970,7 @@ def save(
     _check_save_filelike(f)
 
     if isinstance(f, (str, os.PathLike)):
-        f = os.fspath(f)  # pyrefly: ignore  # no-matching-overload
+        f = os.fspath(f)
 
     if _use_new_zipfile_serialization:
         with _open_zipfile_writer(f) as opened_zipfile:
@@ -1524,7 +1524,7 @@ def load(
                     else:
                         shared = False
                     overall_storage = torch.UntypedStorage.from_file(
-                        # pyrefly: ignore  # no-matching-overload
+
                         os.fspath(f),
                         shared,
                         size,
