@@ -501,6 +501,29 @@ class SizeVarAllocator:
         """
         return self.guard_or_false(sympy.Eq(size, 1))
 
+    def is_broadcastable_or_false(self, size: Expr) -> bool:
+        """Return True if size is broadcastable (== 1 or statically known to be <= 1).
+
+        This is used for broadcasting with unbacked symbols that have a constrained
+        value range of [0, 1], which means they can only be 0 or 1.
+
+        Unbacked symbolic sizes that are not statically known to be <= 1 return False
+        without introducing a guard.
+        """
+        # First check if it's exactly 1
+        if self.guard_or_false(sympy.Eq(size, 1)):
+            return True
+
+        # For unbacked symbols, check if they have a value range with upper bound <= 1
+        # We check the value range directly to avoid calling statically_known_leq which
+        # might cause issues in certain contexts
+        if size in self.shape_env.var_to_range:
+            vr = self.shape_env.var_to_range[size]
+            if vr.upper <= 1:
+                return True
+
+        return False
+
     def evaluate_min(self, left: Expr, right: Expr) -> Expr:
         """return the smaller of left and right, and guard on that choice"""
         if isinstance(left, Expr):

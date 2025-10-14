@@ -689,14 +689,20 @@ def nonzero(fake_mode, func, arg):
 
     if (nnz := arg.nonzero_memo) is None:
         # Avoid importing sympy at a module level
+
+        # Check if numel is 0. We need to use guard_or_false to properly evaluate SymBool
         from torch.fx.experimental.symbolic_shapes import (
             _constrain_range_for_size,
+            guard_or_false as _guard_or_false,
             has_free_symbols,
         )
         from torch.utils._sympy.numbers import IntInfinity
         from torch.utils._sympy.value_ranges import bound_sympy
 
-        if not has_free_symbols(arg.numel()) and arg.numel() == 0:
+        numel_check = not has_free_symbols(arg.numel()) and _guard_or_false(
+            arg.numel() == 0
+        )
+        if numel_check:
             # If numel is zero, then the output size must be zero.
             # In this case, we must not allocate an unbacked SymInt,
             # because if we do, it will immediately get refined to
@@ -1257,9 +1263,82 @@ def _maybe_statically_known_eq_1(size):
 
     # Try statically_known_true which can reason about unbacked symbols
     # using their value ranges without creating guards
-    result = statically_known_true(size == 1)
-    if result is not None:
-        return result
+    return statically_known_true(size == 1)
+
+
+def _maybe_statically_known_eq_0(size):
+    """
+    Check if a size (which may be an unbacked symint) can be statically
+    determined to equal 0 based on its constrained value range.
+
+    This is different from guard_or_false(size == 0) which will create a
+    guard for backed symbols or return False for unbacked ones. Instead,
+    we use statically_known_true to check if the unbacked symbol's constraints
+    force it to equal 0.
+
+    Returns True if the size is provably 0, False otherwise.
+    """
+    from torch.fx.experimental.symbolic_shapes import statically_known_true
+
+    # First check if it's a concrete 0
+    if not isinstance(size, torch.SymInt):
+        return size == 0
+
+    # For SymInts, try statically_known_true first
+    if statically_known_true(size == 0):
+        return True
+
+    # If that doesn't work, check if the value range is [0, 0]
+    # This handles unbacked symints that are constrained to be 0
+    if hasattr(size, "node") and hasattr(size.node, "shape_env"):
+        shape_env = size.node.shape_env
+        var_to_range = shape_env.var_to_range
+        expr = size.node.expr
+
+        # Check if this is a single symbol with a value range
+        if expr in var_to_range:
+            vr = var_to_range[expr]
+            # Check if the range is [0, 0], meaning it can only be 0
+            if vr.lower == 0 and vr.upper == 0:
+                return True
+
+    return False
+
+
+def _maybe_statically_known_leq_1(size):
+    """
+    Check if a size (which may be an unbacked symint) can be statically
+    determined to be <= 1 based on its constrained value range.
+
+    This is useful for broadcasting: if a size can only be 0 or 1, then it
+    can broadcast with any other size by using that other size.
+
+    Returns True if the size is provably <= 1, False otherwise.
+    """
+    from torch.fx.experimental.symbolic_shapes import statically_known_true
+
+    # First check if it's a concrete value <= 1
+    if not isinstance(size, torch.SymInt):
+        return size <= 1
+
+    # For SymInts, try statically_known_true first
+    if statically_known_true(size <= 1):
+        return True
+
+    # If that doesn't work, check if the value range upper bound is <= 1
+    # This handles unbacked symints that are constrained to be 0 or 1
+    if hasattr(size, "node") and hasattr(size.node, "shape_env"):
+        shape_env = size.node.shape_env
+        var_to_range = shape_env.var_to_range
+        expr = size.node.expr
+
+        # Check if this is a single symbol with a value range
+        if expr in var_to_range:
+            vr = var_to_range[expr]
+            # Check if the upper bound is <= 1
+            if vr.upper <= 1:
+                return True
+
     return False
 
 
@@ -1276,9 +1355,17 @@ def infer_size(a, b):
     # and allows relaxed broadcasting rules
     has_zero_dim = False
     for dim_size in itertools.chain(a, b):
-        if guard_or_false(dim_size == 0):
-            has_zero_dim = True
-            break
+        # Check if the dimension is zero using guard_or_false for backed symbols
+        # or _maybe_statically_known_eq_0 for unbacked symbols (like u0)
+        if has_hint(dim_size):
+            if guard_or_false(dim_size == 0):
+                has_zero_dim = True
+                break
+        else:
+            # For unbacked symbols, check if they're statically known to be 0
+            if _maybe_statically_known_eq_0(dim_size):
+                has_zero_dim = True
+                break
 
     for i in range(ndim - 1, -1, -1):
         offset = ndim - 1 - i
@@ -1305,25 +1392,42 @@ def infer_size(a, b):
         # guard_or_false on it (which would try to create a guard), so we
         # check that first and skip directly to the equality check.
         # For unbacked symbols, we try to use statically_known_true to check
-        # if the symbol's constraints force it to equal 1.
-        sizeA_is_1 = (
-            guard_or_false(sizeA == 1)
+        # if the symbol's constraints force it to equal 1, or <= 1 (which
+        # means it can only be 0 or 1, both of which are valid for broadcasting).
+
+        # Check if either size can only be 0 or 1 (i.e., <= 1)
+        # This is valid for broadcasting - if sizeA <= 1, use sizeB; if sizeB <= 1, use sizeA
+        sizeA_leq_1 = (
+            guard_or_false(sizeA <= 1)
             if has_hint(sizeA)
-            else _maybe_statically_known_eq_1(sizeA)
+            else _maybe_statically_known_leq_1(sizeA)
         )
-        sizeB_is_1 = (
-            guard_or_false(sizeB == 1)
+        sizeB_leq_1 = (
+            guard_or_false(sizeB <= 1)
             if has_hint(sizeB)
-            else _maybe_statically_known_eq_1(sizeB)
+            else _maybe_statically_known_leq_1(sizeB)
         )
 
-        torch._check(
-            has_zero_dim or (sizeA_is_1 or sizeB_is_1 or sizeA == sizeB),
-            lambda: f"The size of tensor a ({sizeA}) "
-            f"must match the size of tensor b ({sizeB}) "
-            f"at non-singleton dimension {i})",
-        )
-        expandedSizes[i] = sizeB if sizeA_is_1 else sizeA
+        # Check broadcasting rules: either dimension is <= 1, or they must be equal
+        # We check each condition separately to avoid creating complex symbolic expressions
+        if not has_zero_dim and not sizeA_leq_1 and not sizeB_leq_1:
+            torch._check(
+                sizeA == sizeB,
+                lambda: f"The size of tensor a ({sizeA}) "
+                f"must match the size of tensor b ({sizeB}) "
+                f"at non-singleton dimension {i})",
+            )
+
+        # When setting expandedSizes:
+        # - If sizeA <= 1 (can be 0 or 1), use sizeB
+        # - If sizeB <= 1 (can be 0 or 1), use sizeA
+        # - Otherwise use sizeA (they must be equal due to the check above)
+        if sizeA_leq_1:
+            expandedSizes[i] = sizeB
+        elif sizeB_leq_1:
+            expandedSizes[i] = sizeA
+        else:
+            expandedSizes[i] = sizeA
     return tuple(expandedSizes)
 
 

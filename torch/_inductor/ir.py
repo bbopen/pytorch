@@ -2884,7 +2884,7 @@ class ExpandView(BaseView):
             if new_size[i] == -1:
                 assert old_size[i] is not None
                 new_size[i] = old_size[i]
-            elif old_size[i] is None or V.graph.sizevars.is_size_one_or_false(
+            elif old_size[i] is None or V.graph.sizevars.is_broadcastable_or_false(
                 old_size[i]
             ):
                 pass

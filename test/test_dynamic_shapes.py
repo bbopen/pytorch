@@ -3826,6 +3826,10 @@ def forward(self, arg0_1: "i64[2][1]cpu", arg1_1: "Sym(u2)", arg2_1: "Sym(u3)", 
         fn = torch.compile(f, fullgraph=True, dynamic=True, backend="inductor")
         self.assertTrue(torch.allclose(f(x), fn(x)))
         y = torch.zeros(3, 4)
+        res = f(y)
+        comp_res = fn(y)
+        print(f"res is: {res}")
+        print(f"comp res is {comp_res}")
         self.assertTrue(torch.allclose(f(y), fn(y)))
 
     @fresh_cache()

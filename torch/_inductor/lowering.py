@@ -541,9 +541,10 @@ def broadcast_symbolic_shapes(a, b):
     )
 
     for x, y in itertools.zip_longest(reversed(a), reversed(b), fillvalue=sympy.S.One):
-        if V.graph.sizevars.is_size_one_or_false(y):
+        # Use is_broadcastable_or_false which handles both == 1 and <= 1 cases
+        if V.graph.sizevars.is_broadcastable_or_false(y):
             output.append(x)
-        elif V.graph.sizevars.is_size_one_or_false(x):
+        elif V.graph.sizevars.is_broadcastable_or_false(x):
             output.append(y)
         else:
             # If either tensor has a zero dimension, the result will be empty

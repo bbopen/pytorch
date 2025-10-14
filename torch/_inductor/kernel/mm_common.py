@@ -159,13 +159,16 @@ def _is_static_problem(layout: Layout) -> tuple[bool, bool]:
 
 def check_supported_striding(mat_a: TensorBox, mat_b: TensorBox) -> None:
     def is_row_major(stride: Sequence[_IntLike]) -> bool:
-        return stride[-1] == 1
+        return V.graph.sizevars.statically_known_equals(stride[-1], 1)
 
     def is_col_major(stride: Sequence[_IntLike]) -> bool:
-        return stride[-2] == 1
+        return V.graph.sizevars.statically_known_equals(stride[-2], 1)
 
     def has_zero_dim(size: Sequence[_IntLike]) -> bool:
-        return bool(size[0] == 0 or size[1] == 0)
+        return bool(
+            V.graph.sizevars.statically_known_equals(size[0], 0)
+            or V.graph.sizevars.statically_known_equals(size[1], 0)
+        )
 
     # Check mat_a (self) stride requirements
     torch._check(

@@ -6336,7 +6336,13 @@ def meta_scaled_mm(
             return stride[0] == 1 and stride[1] > 1
 
         def has_zero_dim(tensor_2d):
-            return tensor_2d.size(0) == 0 or tensor_2d.size(1) == 0
+            from torch.fx.experimental.symbolic_shapes import statically_known_true
+
+            # Check if either dimension is zero, handling both concrete values
+            # and symbolic values (like u0 which is statically known to be 0)
+            dim0_is_zero = statically_known_true(tensor_2d.size(0) == 0)
+            dim1_is_zero = statically_known_true(tensor_2d.size(1) == 0)
+            return dim0_is_zero or dim1_is_zero
 
         torch._check(
             is_row_major(self.stride()) or has_zero_dim(self),

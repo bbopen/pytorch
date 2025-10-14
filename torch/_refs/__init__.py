@@ -421,15 +421,28 @@ def _broadcast_shapes(*_shapes):
                 if guard_or_false(shape[idx] == common_shape[idx]):
                     continue
 
+            # Check if common_shape[idx] is 0 - in which case the result is always 0
+            if guard_or_false(common_shape[idx] == 0):
+                # Keep common_shape as 0, since any broadcasting with 0 results in 0
+                continue
+
+            # Check if common_shape[idx] == 1, in which case we should use shape[idx]
             if guard_or_false(common_shape[idx] == 1):
                 if shape[idx] < 0:
                     raise ValueError(
                         "Attempting to broadcast a dimension with negative length!"
                     )
                 common_shape[idx] = shape[idx]
+                continue
 
-            if not is_nested_int(shape[idx]) and guard_or_false(shape[idx] == 1):
-                # broadcast case .
+            # Check if shape[idx] is broadcastable (either == 0, == 1, or <= 1 for unbacked symbols)
+            shape_is_broadcastable = False
+            if not is_nested_int(shape[idx]):
+                if guard_or_false(shape[idx] <= 1):
+                    # For values with upper bound <= 1 (including 0 and 1), they can broadcast
+                    shape_is_broadcastable = True
+
+            if shape_is_broadcastable:
                 continue
             else:
                 # If broadcasting is undecided we pick non-broadcast path and add runtime assertion.

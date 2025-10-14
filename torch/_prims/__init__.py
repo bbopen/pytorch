@@ -1309,7 +1309,8 @@ def _broadcast_in_dim_meta(
         if idx in broadcast_dimensions:
             # Assigns a stride of zero to dimensions
             # which were actually broadcast
-            if guard_or_false(a.shape[original_idx] == 1):
+            # Check if <= 1 to handle unbacked symbols constrained to 0 or 1
+            if guard_or_false(a.shape[original_idx] <= 1):
                 if guard_or_false(a.shape[original_idx] == shape[idx]):
                     new_strides.append(a.stride()[original_idx])
                 else:
